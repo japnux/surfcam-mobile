@@ -10,7 +10,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpots } from '@/hooks/useSpots';
 import { useLocation } from '@/hooks/useLocation';
-import { Loading } from '@/components/shared/Loading';
+import { Loading } from '@/components/ui/Loading';
 import { Colors } from '@/constants/Colors';
 import { calculateDistance, formatDistance } from '@/lib/utils/distance';
 
