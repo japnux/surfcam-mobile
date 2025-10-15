@@ -3,19 +3,23 @@
  * Affiche tous les spots disponibles avec recherche
  */
 
-import { useState } from 'react';
-import { View, FlatList, StyleSheet, TextInput, Text } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, FlatList, StyleSheet, TextInput, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SpotCard } from '@/components/spot/SpotCard';
 import { Loading } from '@/components/ui/Loading';
 import { useSpots, useSearchSpots } from '@/hooks/useSpots';
+import { useLocation } from '@/hooks/useLocation';
 import { Colors } from '@/constants/Colors';
 import { Spacing, FontSize, BorderRadius } from '@/constants/Spacing';
+import { calculateDistance } from '@/lib/utils/distance';
+import type { Spot } from '@/lib/types';
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: allSpots, isLoading, error } = useSpots();
   const { data: searchResults } = useSearchSpots(searchQuery);
+  const { location } = useLocation();
 
   const spots = searchQuery.length > 2 ? searchResults : allSpots;
 
