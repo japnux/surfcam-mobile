@@ -17,7 +17,14 @@ interface ForecastListProps {
 }
 
 export function ForecastList({ hourly, hoursToShow = 48 }: ForecastListProps) {
-  const displayData = hourly.slice(0, hoursToShow);
+  // Filtrer pour afficher uniquement à partir de maintenant
+  const now = new Date();
+  const futureHourly = hourly.filter(item => {
+    const itemDate = new Date(item.time);
+    return itemDate >= now;
+  });
+  
+  const displayData = futureHourly.slice(0, hoursToShow);
 
   const renderItem = ({ item }: { item: HourlyForecast }) => {
     const date = new Date(item.time);

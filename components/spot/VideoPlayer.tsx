@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
-import { Video, VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { Spacing, FontSize, BorderRadius } from '@/constants/Spacing';
@@ -22,6 +22,24 @@ const VIDEO_HEIGHT = width * 0.5625; // 16:9 aspect ratio
 export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+
+  // Expo Go ne supporte pas expo-video, afficher un placeholder
+  const isExpoGo = !__DEV__ || typeof expo !== 'undefined';
+
+  if (isExpoGo) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Ionicons name="videocam-outline" size={48} color={Colors.dark.muted} />
+        <Text style={styles.errorText}>Webcam</Text>
+        <Text style={styles.errorSubtext}>
+          Les vidéos nécessitent un Development Build
+        </Text>
+        <Text style={[styles.errorSubtext, { marginTop: 8, fontSize: 12 }]}>
+          URL: {type.toUpperCase()}
+        </Text>
+      </View>
+    );
+  }
 
   const player = useVideoPlayer(url, (player) => {
     player.loop = true;

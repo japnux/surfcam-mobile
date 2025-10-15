@@ -116,12 +116,12 @@ export default function SpotDetailScreen() {
         )}
 
         {/* Forecast */}
-        {forecast && forecast.hourly.length > 0 && (
+        {forecast && forecast.hourly && forecast.hourly.length > 0 && (
           <ForecastList hourly={forecast.hourly} hoursToShow={48} />
         )}
 
         {/* Tides */}
-        {tides && tides.events.length > 0 && (
+        {tides && tides.events && tides.events.length > 0 && (
           <View style={styles.section}>
             <TideInfo events={tides.events} />
           </View>

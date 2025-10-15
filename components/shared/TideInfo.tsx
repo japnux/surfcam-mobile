@@ -15,7 +15,31 @@ interface TideInfoProps {
 }
 
 export function TideInfo({ events }: TideInfoProps) {
-  const nextEvents = events.slice(0, 4); // Show next 4 tide events
+  // Convertir les heures "0h29" en timestamps pour trier
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const sortedEvents = [...events]
+    .map(event => {
+      // Parser "0h29" -> heures et minutes
+      const match = event.time.match(/(\d+)h(\d+)/);
+      if (match) {
+        const hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        const eventDate = new Date(today);
+        eventDate.setHours(hours, minutes, 0, 0);
+        
+        // Si l'heure est passée aujourd'hui, c'est pour demain
+        if (eventDate < now) {
+          eventDate.setDate(eventDate.getDate() + 1);
+        }
+        
+        return { ...event, sortDate: eventDate };
+      }
+      return { ...event, sortDate: new Date(event.time) };
+    })
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+    .slice(0, 4); // Prendre les 4 prochaines
 
   return (
     <Card style={styles.container}>
@@ -25,10 +49,21 @@ export function TideInfo({ events }: TideInfoProps) {
       </View>
 
       <View style={styles.events}>
-        {nextEvents.map((event, index) => {
-          const date = new Date(event.time);
-          const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-          const dateStr = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+        {sortedEvents.map((event) => {
+          // Gérer le format "0h29" ou date ISO
+          let timeStr = event.time;
+          let dateStr = '';
+          
+          // Si c'est une date ISO complète
+          if (event.time.includes('T') || event.time.includes('-')) {
+            const date = new Date(event.time);
+            timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            dateStr = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+          } else if (event.sortDate) {
+            // Utiliser la date calculée
+            dateStr = event.sortDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+          }
+          
           const isHigh = event.type === 'high';
 
           return (
@@ -44,9 +79,13 @@ export function TideInfo({ events }: TideInfoProps) {
                 <Text style={styles.eventType}>
                   {isHigh ? 'Marée haute' : 'Marée basse'}
                 </Text>
-                <Text style={styles.eventTime}>{timeStr} - {dateStr}</Text>
+                <Text style={styles.eventTime}>
+                  {timeStr}{dateStr ? ` - ${dateStr}` : ''}
+                </Text>
               </View>
-              <Text style={styles.eventHeight}>{event.height.toFixed(2)}m</Text>
+              <Text style={styles.eventHeight}>
+                {typeof event.height === 'number' ? `${event.height.toFixed(2)}m` : 'N/A'}
+              </Text>
             </View>
           );
         })}

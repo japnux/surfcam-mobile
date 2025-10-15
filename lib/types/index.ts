@@ -31,7 +31,9 @@ export interface Spot {
 
 export interface HourlyForecast {
   time: string
-  temperature: number
+  airTemp?: number
+  waterTemp?: number
+  temperature?: number // Alias pour compatibilité
   windSpeed: number
   windDirection: number
   windGust: number
@@ -52,7 +54,7 @@ export interface DailyData {
 
 export interface TideEvent {
   time: string
-  height: number
+  height: number | string // Peut être "N/A" ou un nombre
   type: 'high' | 'low'
 }
 
@@ -62,9 +64,12 @@ export interface HourlyTide {
 }
 
 export interface TideData {
-  events: TideEvent[]
-  hourly: HourlyTide[]
+  events?: TideEvent[]
+  hourly?: HourlyTide[]
 }
+
+// Type pour la réponse API qui peut être soit TideData soit directement un tableau
+export type TideResponse = TideData | TideEvent[]
 
 export interface ForecastData {
   hourly: HourlyForecast[]

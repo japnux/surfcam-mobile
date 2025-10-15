@@ -86,7 +86,7 @@ export function ConditionsBanner({ current, tideHeight }: ConditionsBannerProps)
             <Ionicons name="thermometer" size={20} color={Colors.dark.primary} />
             <Text style={styles.itemLabel}>Eau</Text>
           </View>
-          <Text style={styles.itemValue}>{formatTemperature(current.temperature)}</Text>
+          <Text style={styles.itemValue}>{formatTemperature(current.waterTemp || current.temperature)}</Text>
         </View>
       </View>
     </Card>
