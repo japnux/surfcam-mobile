@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { Colors } from '@/constants/Colors';
 import { Spacing, FontSize } from '@/constants/Spacing';
-import { formatWaveHeight, formatWindSpeed, getWindDirectionArrow } from '@/lib/utils/format';
+import { formatWaveHeight, formatWindSpeed, formatPeriod, getWindDirectionArrow } from '@/lib/utils/format';
 import type { HourlyForecast } from '@/lib/types';
 
 interface ForecastListProps {
@@ -55,7 +55,7 @@ export function ForecastList({ hourly, hoursToShow = 48 }: ForecastListProps) {
           {item.wavePeriod && (
             <View style={styles.forecastItem}>
               <Ionicons name="timer-outline" size={16} color={Colors.dark.muted} />
-              <Text style={styles.forecastValue}>{item.wavePeriod}s</Text>
+              <Text style={styles.forecastValue}>{formatPeriod(item.wavePeriod)}</Text>
             </View>
           )}
         </View>

@@ -4,13 +4,27 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../lib/api/client';
-import { queryKeys } from '../lib/api/query-client';
+import { apiClient } from '@/lib/api/client';
+import { cacheService } from '@/lib/services/cache';
+import type { Spot } from '@/lib/types';
+import { queryKeys } from '@/lib/api/query-client';
 
 export function useSpots() {
   return useQuery({
     queryKey: queryKeys.spots,
-    queryFn: () => apiClient.getSpots(),
+    queryFn: async () => {
+      try {
+        const data = await apiClient.getSpots();
+        // Cache les données pour mode offline
+        await cacheService.set('spots', data);
+        return data;
+      } catch (error) {
+        // En cas d'erreur réseau, utiliser le cache
+        const cached = await cacheService.get<Spot[]>('spots');
+        if (cached) return cached;
+        throw error;
+      }
+    },
   });
 }
 

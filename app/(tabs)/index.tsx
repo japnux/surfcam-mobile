@@ -4,10 +4,10 @@
  */
 
 import { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TextInput, Text, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, TextInput, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SpotCard } from '@/components/spot/SpotCard';
-import { Loading } from '@/components/ui/Loading';
+import { SpotCardSkeleton } from '@/components/spot/SpotCardSkeleton';
 import { useSpots, useSearchSpots } from '@/hooks/useSpots';
 import { useLocation } from '@/hooks/useLocation';
 import { Colors } from '@/constants/Colors';
@@ -17,25 +17,36 @@ import type { Spot } from '@/lib/types';
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: allSpots, isLoading, error } = useSpots();
+  const [refreshing, setRefreshing] = useState(false);
+  const { data: allSpots, isLoading, error, refetch } = useSpots();
   const { data: searchResults } = useSearchSpots(searchQuery);
   const { location } = useLocation();
 
-  const spots = searchQuery.length > 2 ? searchResults : allSpots;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
-  if (isLoading) {
-    return <Loading message="Chargement des spots..." />;
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.destructive} />
-        <Text style={styles.errorText}>Erreur de chargement</Text>
-        <Text style={styles.errorSubtext}>Impossible de charger les spots</Text>
-      </View>
-    );
-  }
+  // Trier les spots par distance si la localisation est disponible
+  const spots = useMemo(() => {
+    const baseSpots = searchQuery.length > 2 ? searchResults : allSpots;
+    
+    if (!baseSpots || !location) return baseSpots;
+    
+    // Calculer la distance pour chaque spot et trier
+    return [...baseSpots]
+      .map(spot => ({
+        ...spot,
+        distance: spot.latitude && spot.longitude
+          ? calculateDistance(
+              { latitude: location.coords.latitude, longitude: location.coords.longitude },
+              { latitude: spot.latitude, longitude: spot.longitude }
+            )
+          : Infinity
+      }))
+      .sort((a, b) => a.distance - b.distance);
+  }, [allSpots, searchResults, searchQuery, location]);
 
   return (
     <View style={styles.container}>
@@ -63,18 +74,40 @@ export default function HomeScreen() {
       </View>
 
       {/* Spots List */}
-      <FlatList
-        data={spots}
-        renderItem={({ item }) => <SpotCard spot={item} />}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="location-outline" size={48} color={Colors.dark.muted} />
-            <Text style={styles.emptyText}>Aucun spot trouvé</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.listContent}>
+          {[...Array(5)].map((_, i) => (
+            <SpotCardSkeleton key={i} />
+          ))}
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.destructive} />
+          <Text style={styles.errorText}>Erreur de chargement</Text>
+          <Text style={styles.errorSubtext}>Impossible de charger les spots</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={spots}
+          renderItem={({ item }) => <SpotCard spot={item} />}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.dark.primary}
+              colors={[Colors.dark.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="location-outline" size={48} color={Colors.dark.muted} />
+              <Text style={styles.emptyText}>Aucun spot trouvé</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

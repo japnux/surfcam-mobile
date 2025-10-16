@@ -3,7 +3,8 @@
  * Displays webcam, current conditions, forecast, and tides
  */
 
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoPlayer } from '@/components/spot/VideoPlayer';
@@ -21,10 +22,21 @@ import { Spacing, FontSize } from '@/constants/Spacing';
 
 export default function SpotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: spot, isLoading: spotLoading } = useSpot(id!);
-  const { data: forecast, isLoading: forecastLoading } = useForecast(id!);
-  const { data: tides, isLoading: tidesLoading } = useTides(id!);
+  const [refreshing, setRefreshing] = useState(false);
+  const { data: spot, isLoading: spotLoading, refetch: refetchSpot } = useSpot(id!);
+  const { data: forecast, isLoading: forecastLoading, refetch: refetchForecast } = useForecast(id!);
+  const { data: tides, isLoading: tidesLoading, refetch: refetchTides } = useTides(id!);
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchSpot(),
+      refetchForecast(),
+      refetchTides(),
+    ]);
+    setRefreshing(false);
+  };
 
   if (spotLoading) {
     return <Loading message="Chargement du spot..." />;
@@ -65,9 +77,20 @@ export default function SpotDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.dark.primary}
+            colors={[Colors.dark.primary]}
+          />
+        }
+      >
         {/* Webcam */}
-        <View style={styles.section}>
+        <View style={styles.videoSection}>
           <VideoPlayer url={spot.cam_url} type={spot.cam_type} spotName={spot.name} />
         </View>
 
@@ -176,6 +199,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  videoSection: {
+    height: 250,
+    width: '100%',
   },
   section: {
     padding: Spacing.md,

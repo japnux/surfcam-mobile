@@ -17,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.surfcam.app",
       "buildNumber": "1",
+      "deploymentTarget": "15.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Surfcam utilise votre position pour trouver les spots à proximité.",
         "NSCameraUsageDescription": "Surfcam a besoin d'accéder à votre caméra pour partager des photos de sessions."

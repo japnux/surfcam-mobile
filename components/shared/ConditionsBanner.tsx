@@ -9,7 +9,7 @@ import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Colors } from '@/constants/Colors';
 import { Spacing, FontSize } from '@/constants/Spacing';
-import { formatWaveHeight, formatWindSpeed, formatTemperature, getWindDirectionArrow } from '@/lib/utils/format';
+import { formatWaveHeight, formatWindSpeed, formatTemperature, formatPeriod, getWindDirectionArrow } from '@/lib/utils/format';
 import type { HourlyForecast } from '@/lib/types';
 
 interface ConditionsBannerProps {
@@ -50,7 +50,7 @@ export function ConditionsBanner({ current, tideHeight }: ConditionsBannerProps)
           </View>
           <Text style={styles.itemValue}>{formatWaveHeight(current.waveHeight)}</Text>
           {current.wavePeriod && (
-            <Text style={styles.itemSubtext}>Période: {current.wavePeriod}s</Text>
+            <Text style={styles.itemSubtext}>Période: {formatPeriod(current.wavePeriod)}</Text>
           )}
         </View>
 

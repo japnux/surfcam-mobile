@@ -3,7 +3,7 @@
  * Displays the spot webcam using expo-video
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,8 +23,24 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
+  console.log('VideoPlayer - URL:', url, 'Type:', type);
+
+  // Si pas d'URL, afficher un placeholder
+  if (!url || url === 'null' || url === 'undefined') {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Ionicons name="videocam-outline" size={48} color={Colors.dark.muted} />
+        <Text style={styles.errorText}>Webcam non disponible</Text>
+        <Text style={styles.errorSubtext}>
+          Aucune webcam configurée pour ce spot
+        </Text>
+      </View>
+    );
+  }
+
   // Expo Go ne supporte pas expo-video, afficher un placeholder
-  const isExpoGo = !__DEV__ || typeof expo !== 'undefined';
+  // En dev build, Constants.appOwnership === 'expo' est false
+  const isExpoGo = typeof expo !== 'undefined' && expo?.modules?.ExpoGo;
 
   if (isExpoGo) {
     return (
@@ -35,7 +51,7 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
           Les vidéos nécessitent un Development Build
         </Text>
         <Text style={[styles.errorSubtext, { marginTop: 8, fontSize: 12 }]}>
-          URL: {type.toUpperCase()}
+          URL: {type?.toUpperCase() || 'N/A'}
         </Text>
       </View>
     );
@@ -45,6 +61,26 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
     player.loop = true;
     player.play();
   });
+
+  // Écouter les événements du player
+  useEffect(() => {
+    const subscription = player.addListener('statusChange', (status) => {
+      console.log('Video status:', status.status);
+      if (status.status === 'readyToPlay') {
+        setIsLoading(false);
+        setHasError(false);
+      } else if (status.status === 'error') {
+        console.error('Video error:', status.error);
+        setIsLoading(false);
+        setHasError(true);
+      }
+    });
+
+    // Cleanup
+    return () => {
+      subscription.remove();
+    };
+  }, [player]);
 
   if (hasError) {
     return (
@@ -63,8 +99,8 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
         player={player}
         allowsFullscreen
         allowsPictureInPicture
-        contentFit="cover"
-        nativeControls={false}
+        contentFit="contain"
+        nativeControls={true}
       />
       
       {isLoading && (
@@ -73,13 +109,6 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
       )}
-
-      <View style={styles.overlay}>
-        <View style={styles.badge}>
-          <Ionicons name="videocam" size={16} color={Colors.dark.text} />
-          <Text style={styles.badgeText}>EN DIRECT</Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -87,11 +116,9 @@ export function VideoPlayer({ url, type, spotName }: VideoPlayerProps) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: VIDEO_HEIGHT,
+    flex: 1,
     backgroundColor: Colors.dark.card,
-    borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-    position: 'relative',
   },
   video: {
     width: '100%',
@@ -122,28 +149,5 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     fontSize: FontSize.sm,
     color: Colors.dark.muted,
-  },
-  overlay: {
-    position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: Colors.dark.destructive,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  badgeText: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.dark.text,
   },
 });

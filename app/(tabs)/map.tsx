@@ -11,7 +11,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSpots } from '@/hooks/useSpots';
 import { useLocation } from '@/hooks/useLocation';
 import { Loading } from '@/components/ui/Loading';
+import { VideoPlayer } from '@/components/spot/VideoPlayer';
 import { Colors } from '@/constants/Colors';
+import { Spacing } from '@/constants/Spacing';
 import { calculateDistance, formatDistance } from '@/lib/utils/distance';
 
 export default function MapScreen() {
@@ -45,79 +47,40 @@ export default function MapScreen() {
       mapRef.current.animateToRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        latitudeDelta: 0.5,
-        longitudeDelta: 0.5,
+        latitudeDelta: 0.135, // ~15km radius
+        longitudeDelta: 0.135,
       });
     }
   };
 
+  // Compter les spots avec coordonnées
+  const spotsWithCoords = spots?.filter(s => s.latitude && s.longitude && s.latitude !== 0 && s.longitude !== 0) || [];
+
+  // Get selected spot info
+  const selectedSpotData = selectedSpot && spots ? spots.find(s => s.id === selectedSpot) : null;
+  const selectedSpotDistance = selectedSpotData && location && selectedSpotData.latitude && selectedSpotData.longitude
+    ? calculateDistance(
+        { latitude: location.coords.latitude, longitude: location.coords.longitude },
+        { latitude: selectedSpotData.latitude, longitude: selectedSpotData.longitude }
+      )
+    : null;
+
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={initialRegion}
-        showsUserLocation={!!location}
-        showsMyLocationButton={false}
-      >
-        {spots?.map((spot) => {
-          if (!spot.latitude || !spot.longitude) return null;
+      {/* Map Section */}
+      <View style={styles.mapSection}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_DEFAULT}
+          initialRegion={initialRegion}
+          showsUserLocation={!!location}
+          showsMyLocationButton={false}
+        >
+          {spots?.map((spot) => {
+            if (!spot.latitude || !spot.longitude || spot.latitude === 0 || spot.longitude === 0) return null;
 
-          const distance = location
-            ? calculateDistance(
-                { latitude: location.coords.latitude, longitude: location.coords.longitude },
-                { latitude: spot.latitude, longitude: spot.longitude }
-              )
-            : null;
-
-          return (
-            <Marker
-              key={spot.id}
-              coordinate={{
-                latitude: spot.latitude,
-                longitude: spot.longitude,
-              }}
-              onPress={() => handleMarkerPress(spot.id)}
-              pinColor={selectedSpot === spot.id ? Colors.dark.primary : Colors.dark.secondary}
-            >
-              <View style={styles.markerContainer}>
-                <View style={[
-                  styles.marker,
-                  selectedSpot === spot.id && styles.markerSelected
-                ]}>
-                  <Ionicons
-                    name="location"
-                    size={24}
-                    color={selectedSpot === spot.id ? Colors.dark.primary : Colors.dark.text}
-                  />
-                </View>
-                {distance !== null && distance < 50 && (
-                  <View style={styles.distanceBadge}>
-                    <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
-                  </View>
-                )}
-              </View>
-            </Marker>
-          );
-        })}
-      </MapView>
-
-      {/* Center on user button */}
-      {location && (
-        <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
-          <Ionicons name="locate" size={24} color={Colors.dark.primary} />
-        </TouchableOpacity>
-      )}
-
-      {/* Selected spot info */}
-      {selectedSpot && spots && (
-        <View style={styles.spotInfo}>
-          {(() => {
-            const spot = spots.find(s => s.id === selectedSpot);
-            if (!spot) return null;
-
-            const distance = location && spot.latitude && spot.longitude
+            const distance = location
               ? calculateDistance(
                   { latitude: location.coords.latitude, longitude: location.coords.longitude },
                   { latitude: spot.latitude, longitude: spot.longitude }
@@ -125,29 +88,93 @@ export default function MapScreen() {
               : null;
 
             return (
-              <TouchableOpacity
-                style={styles.spotInfoContent}
-                onPress={() => handleCalloutPress(selectedSpot)}
+              <Marker
+                key={spot.id}
+                coordinate={{
+                  latitude: spot.latitude,
+                  longitude: spot.longitude,
+                }}
+                onPress={() => handleMarkerPress(spot.id)}
+                pinColor={selectedSpot === spot.id ? Colors.dark.primary : Colors.dark.secondary}
               >
-                <View style={styles.spotInfoHeader}>
-                  <Text style={styles.spotName} numberOfLines={1}>
-                    {spot.name}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.muted} />
+                <View style={styles.markerContainer}>
+                  <View style={[
+                    styles.marker,
+                    selectedSpot === spot.id && styles.markerSelected
+                  ]}>
+                    <Ionicons
+                      name="location"
+                      size={24}
+                      color={selectedSpot === spot.id ? Colors.dark.primary : Colors.dark.text}
+                    />
+                  </View>
+                  {distance !== null && distance < 50 && (
+                    <View style={styles.distanceBadge}>
+                      <Text style={styles.distanceText}>{formatDistance(distance)}</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.spotLocation} numberOfLines={1}>
-                  {spot.city}, {spot.region}
+              </Marker>
+            );
+          })}
+        </MapView>
+
+        {/* Info message if no spots with coordinates */}
+        {spotsWithCoords.length === 0 && (
+          <View style={styles.infoMessage}>
+            <Ionicons name="information-circle" size={24} color={Colors.dark.warning} />
+            <Text style={styles.infoText}>
+              Aucun spot n'a de coordonnées GPS pour le moment
+            </Text>
+          </View>
+        )}
+
+        {/* Center on user button */}
+        {location && (
+          <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
+            <Ionicons name="locate" size={24} color={Colors.dark.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Video Section */}
+      <View style={styles.videoSection}>
+        {selectedSpotData ? (
+          <>
+            <TouchableOpacity
+              style={styles.spotVideoHeader}
+              onPress={() => handleCalloutPress(selectedSpot!)}
+            >
+              <View style={styles.spotVideoInfo}>
+                <Text style={styles.spotVideoName} numberOfLines={1}>
+                  {selectedSpotData.name}
                 </Text>
-                {distance !== null && (
-                  <Text style={styles.spotDistance}>
-                    📍 {formatDistance(distance)}
+                {selectedSpotDistance !== null && (
+                  <Text style={styles.spotVideoDistance}>
+                    📍 {formatDistance(selectedSpotDistance)}
                   </Text>
                 )}
-              </TouchableOpacity>
-            );
-          })()}
-        </View>
-      )}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.muted} />
+            </TouchableOpacity>
+            
+            {selectedSpotData.cam_url && (
+              <VideoPlayer
+                url={selectedSpotData.cam_url}
+                type={selectedSpotData.cam_type || 'hls'}
+                spotName={selectedSpotData.name}
+              />
+            )}
+          </>
+        ) : (
+          <View style={styles.emptyVideoState}>
+            <Ionicons name="videocam-outline" size={48} color={Colors.dark.muted} />
+            <Text style={styles.emptyVideoText}>
+              Sélectionnez un spot sur la carte
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -157,8 +184,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.background,
   },
+  mapSection: {
+    flex: 2,
+    position: 'relative',
+  },
   map: {
     flex: 1,
+  },
+  videoSection: {
+    flex: 1,
+    backgroundColor: Colors.dark.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
   },
   markerContainer: {
     alignItems: 'center',
@@ -186,9 +223,31 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
+  infoMessage: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: Colors.dark.card,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
   centerButton: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 16,
     right: 16,
     backgroundColor: Colors.dark.card,
     width: 48,
@@ -202,42 +261,38 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  spotInfo: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: Colors.dark.card,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  spotInfoContent: {
-    gap: 4,
-  },
-  spotInfoHeader: {
+  spotVideoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
-  spotName: {
+  spotVideoInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  spotVideoName: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.dark.text,
-    flex: 1,
   },
-  spotLocation: {
-    fontSize: 14,
-    color: Colors.dark.muted,
-  },
-  spotDistance: {
-    fontSize: 14,
+  spotVideoDistance: {
+    fontSize: 12,
     color: Colors.dark.primary,
     fontWeight: '500',
-    marginTop: 4,
+  },
+  emptyVideoState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  emptyVideoText: {
+    marginTop: Spacing.md,
+    fontSize: 14,
+    color: Colors.dark.muted,
+    textAlign: 'center',
   },
 });

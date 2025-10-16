@@ -10,6 +10,26 @@ import { Colors } from '@/constants/Colors';
 import { Spacing, FontSize } from '@/constants/Spacing';
 import type { TideEvent } from '@/lib/types';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function parseHeight(height: TideEvent['height']): number | null {
+  if (typeof height === 'number') return height;
+  if (typeof height === 'string') {
+    const value = parseFloat(height.replace(',', '.').replace(/[^\d.+-]/g, ''));
+    return Number.isNaN(value) ? null : value;
+  }
+  return null;
+}
+
+function parseTimeString(baseDate: Date, time: string, offset: number): Date {
+  const match = time.match(/(\d{1,2})h(\d{2})/);
+  const date = new Date(baseDate.getTime() + offset * MS_PER_DAY);
+  if (match) {
+    date.setHours(parseInt(match[1], 10), parseInt(match[2], 10), 0, 0);
+  }
+  return date;
+}
+
 interface TideInfoProps {
   events: TideEvent[];
 }
@@ -19,27 +39,49 @@ export function TideInfo({ events }: TideInfoProps) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
-  const sortedEvents = [...events]
+  let currentOffset = 0;
+  let previousMinutes: number | null = null;
+
+  const parsedEvents = events
     .map(event => {
-      // Parser "0h29" -> heures et minutes
-      const match = event.time.match(/(\d+)h(\d+)/);
-      if (match) {
-        const hours = parseInt(match[1]);
-        const minutes = parseInt(match[2]);
-        const eventDate = new Date(today);
-        eventDate.setHours(hours, minutes, 0, 0);
-        
-        // Si l'heure est passée aujourd'hui, c'est pour demain
-        if (eventDate < now) {
-          eventDate.setDate(eventDate.getDate() + 1);
+      let sortDate: Date;
+      const isIso = event.time.includes('T') || event.time.includes('-');
+
+      if (isIso) {
+        sortDate = new Date(event.time);
+        const midnight = new Date(today);
+        midnight.setTime(sortDate.getTime());
+        midnight.setHours(0, 0, 0, 0);
+        currentOffset = Math.round((midnight.getTime() - today.getTime()) / MS_PER_DAY);
+      } else {
+        const [_, hoursStr, minutesStr] = event.time.match(/(\d{1,2})h(\d{2})/) || [];
+        if (minutesStr) {
+          const totalMinutes = parseInt(hoursStr, 10) * 60 + parseInt(minutesStr, 10);
+          if (previousMinutes !== null && totalMinutes < previousMinutes - 60) {
+            currentOffset += 1;
+          }
+          previousMinutes = totalMinutes;
         }
-        
-        return { ...event, sortDate: eventDate };
+        sortDate = parseTimeString(today, event.time, currentOffset);
+        if (sortDate.getTime() < now.getTime() - MS_PER_DAY) {
+          sortDate = parseTimeString(today, event.time, currentOffset + 1);
+        }
       }
-      return { ...event, sortDate: new Date(event.time) };
+
+      const heightValue = parseHeight(event.height);
+
+      return {
+        ...event,
+        sortDate,
+        heightValue,
+      };
     })
-    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
-    .slice(0, 4); // Prendre les 4 prochaines
+    .filter(event => !Number.isNaN(event.sortDate.getTime()))
+    .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime());
+
+  const upcomingEvents = parsedEvents
+    .filter(event => event.sortDate.getTime() >= now.getTime())
+    .slice(0, 4);
 
   return (
     <Card style={styles.container}>
@@ -49,25 +91,17 @@ export function TideInfo({ events }: TideInfoProps) {
       </View>
 
       <View style={styles.events}>
-        {sortedEvents.map((event) => {
-          // Gérer le format "0h29" ou date ISO
-          let timeStr = event.time;
-          let dateStr = '';
-          
-          // Si c'est une date ISO complète
-          if (event.time.includes('T') || event.time.includes('-')) {
-            const date = new Date(event.time);
-            timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            dateStr = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-          } else if (event.sortDate) {
-            // Utiliser la date calculée
-            dateStr = event.sortDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
-          }
-          
+        {upcomingEvents.map((event, index) => {
+          const isIso = event.time.includes('T') || event.time.includes('-');
+          const displayDate = event.sortDate;
+          const timeStr = isIso
+            ? new Date(event.time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : displayDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const dateStr = displayDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
           const isHigh = event.type === 'high';
 
           return (
-            <View key={event.time} style={styles.event}>
+            <View key={`tide-${index}-${event.time}-${event.type}`} style={styles.event}>
               <View style={styles.eventIcon}>
                 <Ionicons
                   name={isHigh ? 'arrow-up' : 'arrow-down'}
@@ -84,7 +118,7 @@ export function TideInfo({ events }: TideInfoProps) {
                 </Text>
               </View>
               <Text style={styles.eventHeight}>
-                {typeof event.height === 'number' ? `${event.height.toFixed(2)}m` : 'N/A'}
+                {event.heightValue !== null ? `${event.heightValue.toFixed(2)}m` : 'N/A'}
               </Text>
             </View>
           );
